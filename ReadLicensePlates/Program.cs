@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using GenetecChallenge.N1.Services;
 using System.Net.Http;
+using WantedListUpdate.Repository;
 
 namespace GenetecChallenge.N1
 {
@@ -39,6 +40,7 @@ namespace GenetecChallenge.N1
             service.AddSingleton<HttpClient>();
             service.AddTransient<LicenseApiService>();
             service.AddTransient<LicensePlateBusService>();
+            service.AddSingleton<LicensePlateRepository>();
             return service.BuildServiceProvider();
 
         }

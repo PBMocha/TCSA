@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using WantedListUpdate.Repository;
 
 namespace GenetecChallenge.N1.Services
 {
@@ -15,7 +16,8 @@ namespace GenetecChallenge.N1.Services
         private readonly string _readTopicName;
         private readonly string _subscriptionKey;
         private readonly LicenseApiService _licenseService;
-        public LicensePlateBusService(SecretsConfig config, LicenseApiService licenseService)
+        private readonly LicensePlateRepository _repo;
+        public LicensePlateBusService(SecretsConfig config, LicenseApiService licenseService, LicensePlateRepository repo)
         {
             _config = config;
 
@@ -23,6 +25,7 @@ namespace GenetecChallenge.N1.Services
             _readTopicName = config.ReadTopic;
             _subscriptionKey = config.SubscriptionKey;
             _licenseService = licenseService;
+            _repo = repo;
 
         }
         public async Task SendMessage(LicensePlatePayload licensePlate)
@@ -68,11 +71,15 @@ namespace GenetecChallenge.N1.Services
         {
             string body = args.Message.Body.ToString();
 
+            var wantedList = _repo.RetrieveWantedList();
+
             var lp = JsonSerializer.Deserialize<LicensePlatePayload>(body);
 
-            var code = await _licenseService.SendPlate(lp);
-            Console.WriteLine($"Sending:\n{lp.LicensePlateCaptureTime}\n{lp.LicensePlate}\n{lp.Longitude}\n{lp.Latitude}\nResponse: {code}");
-
+            if (wantedList.Contains(lp.LicensePlate))
+            {
+                var code = await _licenseService.SendPlate(lp);
+                Console.WriteLine($"Sending:\n{lp.LicensePlateCaptureTime}\n{lp.LicensePlate}\n{lp.Longitude}\n{lp.Latitude}\nResponse: {code}");
+            }
             // complete the message. messages is deleted from the queue. 
             await args.CompleteMessageAsync(args.Message);
         }

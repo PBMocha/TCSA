@@ -9,6 +9,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using WantedListUpdate.Repository;
 
+
 namespace WantedListUpdate.Services
 {
     public class WantedBusService
@@ -19,7 +20,7 @@ namespace WantedListUpdate.Services
         private readonly string _subscriptionKey;
         private readonly LicenseApiService _licenseService;
         private readonly LicensePlateRepository _azureRepository;
-        public WantedBusService(SecretsConfig config, LicensePlateRepository azureRepository,LicenseApiService licenseService)
+        public WantedBusService(SecretsConfig config, LicensePlateRepository azureRepository, LicenseApiService licenseService)
         {
             _config = config;
 
@@ -30,12 +31,13 @@ namespace WantedListUpdate.Services
             _azureRepository = azureRepository;
 
         }
-        public async Task ReceiveLicensePlates()
+        public async Task UpdateWantedList()
         {
             await using (ServiceBusClient client = new ServiceBusClient(_connectionString))
             {
                 // create a processor that we can use to process the messages
                 ServiceBusProcessor processor = client.CreateProcessor(_readTopicName, _subscriptionKey, new ServiceBusProcessorOptions());
+                
 
                 // add handler to process messages
                 processor.ProcessMessageAsync += MessageHandler;
@@ -46,7 +48,7 @@ namespace WantedListUpdate.Services
                 // start processing 
                 await processor.StartProcessingAsync();
 
-                Console.WriteLine("Wait for a minute and then press any key to end the processing");
+                Console.WriteLine("Waiting for updates...");
                 Console.ReadKey();
 
                 // stop processing 
@@ -60,10 +62,15 @@ namespace WantedListUpdate.Services
         {
             string body = args.Message.Body.ToString();
 
-            var lp = JsonSerializer.Deserialize<LicensePlatePayload>(body);
+            Console.WriteLine($"{body}");
 
-            var code = await _licenseService.SendPlate(lp);
-            Console.WriteLine($"Sending:\n{lp.LicensePlateCaptureTime}\n{lp.LicensePlate}\n{lp.Longitude}\n{lp.Latitude}\nResponse: {code}");
+            var wanted = await _licenseService.GetWantedList();
+            
+            //Store wanted into table
+            foreach(var w in wanted)
+            {
+                await _azureRepository.StoreLicensePlate(w);
+            }
 
             // complete the message. messages is deleted from the queue. 
             await args.CompleteMessageAsync(args.Message);

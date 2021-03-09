@@ -6,6 +6,9 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Net.Http.Headers;
+using WantedListUpdate.Models;
+using System.IO;
+using Newtonsoft.Json;
 
 namespace GenetecChallenge.N1.Services
 {
@@ -22,7 +25,7 @@ namespace GenetecChallenge.N1.Services
 
         public async Task<string> SendPlate(LicensePlatePayload lp)
         {
-            var payload = JsonSerializer.Serialize(lp);
+            var payload = System.Text.Json.JsonSerializer.Serialize(lp);
             var request = new HttpRequestMessage(HttpMethod.Post, $"{_config.LicenseRoot}/lpr/platelocation");
             request.Headers.Authorization = new AuthenticationHeaderValue("Basic", _config.ApiKey);
             request.Content = new StringContent(payload,Encoding.UTF8, "application/json");
@@ -32,15 +35,18 @@ namespace GenetecChallenge.N1.Services
             return response.StatusCode.ToString();
         }
 
-        public async Task<IEnumerator<string>> GetWantedList()
+        public async Task<List<string>> GetWantedList()
         {
             var request = new HttpRequestMessage(HttpMethod.Get, $"{_config.LicenseRoot}/lpr/wantedplates");
 
             request.Headers.Authorization = new AuthenticationHeaderValue("Basic", _config.ApiKey);
 
-            var response = await _client.SendAsync(request);
 
-            return null;
+            var response = await _client.SendAsync(request);
+            var json = response.Content.ReadAsStringAsync().Result;
+            Console.WriteLine(json);
+
+            return JsonConvert.DeserializeObject<List<string>>(json);
         }
     }
 }

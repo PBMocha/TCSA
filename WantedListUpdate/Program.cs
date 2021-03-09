@@ -1,4 +1,5 @@
-﻿using GenetecChallenge.N1.Services;
+﻿using GenetecChallenge.N1;
+using GenetecChallenge.N1.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System;
@@ -20,21 +21,31 @@ namespace WantedListUpdate
 
             var serviceProvider = BuildContainer(new ServiceCollection(), _config);
 
-            var _lpService = serviceProvider.GetService<LicensePlateBusService>();
+            var _wantedService = serviceProvider.GetService<WantedBusService>();
+            var _licenseService = serviceProvider.GetService<LicenseApiService>();
+            var _azureRepository = serviceProvider.GetService<LicensePlateRepository>();
 
-            await _lpService.ReceiveLicensePlates();
+            var wanted = await _licenseService.GetWantedList();
 
+            //Store wanted into table
+            foreach (var w in wanted)
+            {
+                Console.WriteLine(w);
+                await _azureRepository.StoreLicensePlate(w);
+            }
 
+            await _wantedService.UpdateWantedList();
 
         }
 
         public static ServiceProvider BuildContainer(ServiceCollection service, IConfiguration config)
         {
             service.AddSingleton(config);
+            service.AddSingleton<SecretsConfig>();
             service.AddSingleton<HttpClient>();
             service.AddTransient<LicenseApiService>();
             service.AddTransient<WantedBusService>();
-
+            service.AddSingleton<LicensePlateRepository>();
 
             return service.BuildServiceProvider();
 
