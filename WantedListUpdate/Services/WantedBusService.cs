@@ -16,7 +16,7 @@ namespace WantedListUpdate.Services
     {
         private readonly SecretsConfig _config;
         private readonly string _connectionString;
-        private readonly string _readTopicName;
+        private readonly string _wantedTopic;
         private readonly string _subscriptionKey;
         private readonly LicenseApiService _licenseService;
         private readonly LicensePlateRepository _azureRepository;
@@ -25,18 +25,24 @@ namespace WantedListUpdate.Services
             _config = config;
 
             _connectionString = config.WantedConnectionString;
-            _readTopicName = config.WantedTopic;
+            _wantedTopic = config.WantedTopic;
             _subscriptionKey = config.SubscriptionKey;
             _licenseService = licenseService;
             _azureRepository = azureRepository;
 
         }
+
+        public async Task SendMessage()
+        {
+
+        }
+
         public async Task UpdateWantedList()
         {
             await using (ServiceBusClient client = new ServiceBusClient(_connectionString))
             {
                 // create a processor that we can use to process the messages
-                ServiceBusProcessor processor = client.CreateProcessor(_readTopicName, _subscriptionKey, new ServiceBusProcessorOptions());
+                ServiceBusProcessor processor = client.CreateProcessor(_wantedTopic, _subscriptionKey, new ServiceBusProcessorOptions());
                 
 
                 // add handler to process messages
@@ -62,13 +68,18 @@ namespace WantedListUpdate.Services
         {
             string body = args.Message.Body.ToString();
 
-            Console.WriteLine($"{body}");
+            Console.WriteLine($"NOTIFIED: {body}");
 
             var wanted = await _licenseService.GetWantedList();
-            
-            //Store wanted into table
+            var currentList = _azureRepository.RetrieveWantedList();
+
+            //Store wanted plates into table
             foreach(var w in wanted)
             {
+                
+                if (currentList.Contains(w)) 
+                    continue; 
+
                 await _azureRepository.StoreLicensePlate(w);
             }
 

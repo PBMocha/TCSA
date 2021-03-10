@@ -6,6 +6,8 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using WantedListUpdate.Repository;
+using System.Security.Cryptography;
+using GenetecChallenge.N1.Repository;
 
 namespace GenetecChallenge.N1.Services
 {
@@ -17,7 +19,13 @@ namespace GenetecChallenge.N1.Services
         private readonly string _subscriptionKey;
         private readonly LicenseApiService _licenseService;
         private readonly LicensePlateRepository _repo;
-        public LicensePlateBusService(SecretsConfig config, LicenseApiService licenseService, LicensePlateRepository repo)
+        private readonly FileRepository _fileRepo;
+        private readonly BlobRepository _blob;
+        public LicensePlateBusService(SecretsConfig config, 
+            LicenseApiService licenseService, 
+            LicensePlateRepository repo, 
+            FileRepository fileRepo, 
+            BlobRepository blob)
         {
             _config = config;
 
@@ -26,20 +34,9 @@ namespace GenetecChallenge.N1.Services
             _subscriptionKey = config.SubscriptionKey;
             _licenseService = licenseService;
             _repo = repo;
+            _blob = blob;
+            _fileRepo = fileRepo;
 
-        }
-        public async Task SendMessage(LicensePlatePayload licensePlate)
-        {
-            var json = JsonSerializer.Serialize(licensePlate);
-            
-
-            await using (ServiceBusClient client = new ServiceBusClient(_connectionString))
-            {
-                // create a sender for the topic
-                ServiceBusSender sender = client.CreateSender(_readTopicName);
-                await sender.SendMessageAsync(new ServiceBusMessage(json));
-                Console.WriteLine($"Sent a single message to the topic: {_readTopicName}");
-            }
         }
         public async Task ReceiveLicensePlates()
         {
@@ -74,11 +71,17 @@ namespace GenetecChallenge.N1.Services
             var wantedList = _repo.RetrieveWantedList();
 
             var lp = JsonSerializer.Deserialize<LicensePlatePayload>(body);
-
+            
+            //await _licenseService.SendPlate(lp);
             if (wantedList.Contains(lp.LicensePlate))
             {
+                var filePath = _fileRepo.ReadImage(lp.ContextImageJpg, lp.LicensePlate);
+                var uri = await _blob.Upload(filePath);
+                _fileRepo.CleanFiles(filePath);
+                lp.ContextImageReference = uri;
+
+                Console.WriteLine($"Sending:\n{lp.LicensePlateCaptureTime}\n{lp.LicensePlate}\n{lp.Longitude}\n{lp.Latitude}\n{uri}");
                 var code = await _licenseService.SendPlate(lp);
-                Console.WriteLine($"Sending:\n{lp.LicensePlateCaptureTime}\n{lp.LicensePlate}\n{lp.Longitude}\n{lp.Latitude}\nResponse: {code}");
             }
             // complete the message. messages is deleted from the queue. 
             await args.CompleteMessageAsync(args.Message);

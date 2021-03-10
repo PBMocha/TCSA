@@ -9,6 +9,7 @@ using System.Net.Http.Headers;
 using WantedListUpdate.Models;
 using System.IO;
 using Newtonsoft.Json;
+using GenetecChallenge.N1.Extensions;
 
 namespace GenetecChallenge.N1.Services
 {
@@ -25,9 +26,11 @@ namespace GenetecChallenge.N1.Services
 
         public async Task<string> SendPlate(LicensePlatePayload lp)
         {
-            var payload = System.Text.Json.JsonSerializer.Serialize(lp);
+            var payload = System.Text.Json.JsonSerializer.Serialize(lp.ToDto());
+            Console.WriteLine(payload);
             var request = new HttpRequestMessage(HttpMethod.Post, $"{_config.LicenseRoot}/lpr/platelocation");
             request.Headers.Authorization = new AuthenticationHeaderValue("Basic", _config.ApiKey);
+
             request.Content = new StringContent(payload,Encoding.UTF8, "application/json");
 
             var response = await _client.SendAsync(request);
@@ -47,6 +50,14 @@ namespace GenetecChallenge.N1.Services
             Console.WriteLine(json);
 
             return JsonConvert.DeserializeObject<List<string>>(json);
+        }
+
+        public async Task SendWithImage(LicensePlatePayload lp)
+        {
+            var payload = System.Text.Json.JsonSerializer.Serialize(lp);
+            var request = new HttpRequestMessage(HttpMethod.Post, $"{_config.LicenseRoot}/lpr/platelocation");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Basic", _config.ApiKey);
+            request.Content = new StringContent(payload, Encoding.UTF8, "application/json");
         }
     }
 }

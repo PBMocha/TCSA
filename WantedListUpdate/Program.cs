@@ -26,11 +26,15 @@ namespace WantedListUpdate
             var _azureRepository = serviceProvider.GetService<LicensePlateRepository>();
 
             var wanted = await _licenseService.GetWantedList();
+            var currentList = _azureRepository.RetrieveWantedList();
 
-            //Store wanted into table
+            //Store wanted plates into table
             foreach (var w in wanted)
             {
-                Console.WriteLine(w);
+
+                if (currentList.Contains(w))
+                    continue;
+
                 await _azureRepository.StoreLicensePlate(w);
             }
 
@@ -43,8 +47,8 @@ namespace WantedListUpdate
             service.AddSingleton(config);
             service.AddSingleton<SecretsConfig>();
             service.AddSingleton<HttpClient>();
-            service.AddTransient<LicenseApiService>();
-            service.AddTransient<WantedBusService>();
+            service.AddScoped<LicenseApiService>();
+            service.AddScoped<WantedBusService>();
             service.AddSingleton<LicensePlateRepository>();
 
             return service.BuildServiceProvider();
